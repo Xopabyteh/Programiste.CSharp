@@ -20,8 +20,6 @@ static Hrac HrajPartii()
 
 	hra.PridejHrace(hrac1);
 	hra.PridejHrace(hrac2);
-	hra.PridejHrace(hrac3);
-	//hra.PridejHrace(hracN);
 	hra.NastavNahodnePoradiHracu();
 
 	hra.Start();
