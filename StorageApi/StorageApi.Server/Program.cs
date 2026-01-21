@@ -1,38 +1,68 @@
 using Microsoft.AspNetCore.Mvc;
+using Scalar.AspNetCore;
 using StorageApi.Server;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddOpenApi();
 builder.Services.AddSingleton<IKvStore, InMemoryKvStore>();
 
 var app = builder.Build();
 
-app.UseSwagger();
-app.UseSwaggerUI();
+app.MapOpenApi();
+app.MapScalarApiReference();
 
-app.MapGet("/", () => Results.Redirect("/swagger"));
+app.MapGet("/", () => Results.Redirect("/scalar"));
 
-app.MapGet("/kv/{key}", ([FromRoute] string key, IKvStore store) =>
+var kvApi = app.MapGroup("/kv")
+	.WithTags("Key value store");
+
+kvApi.MapGet("/", ([FromQuery] string? prefix, IKvStore store) =>
 {
-	return Results.StatusCode(StatusCodes.Status501NotImplemented);
+	var keys = store.ListKeys(prefix ?? "");
+	return Results.Ok(new { keys });
 });
 
-app.MapPut("/kv/{key}", async ([FromRoute] string key, HttpRequest request, IKvStore store) =>
+kvApi.MapGet("/{key}", ([FromRoute] string key, IKvStore store) =>
 {
-	await Task.CompletedTask;
-	return Results.StatusCode(StatusCodes.Status501NotImplemented);
+	if (!ValidationRules.ValidateKey(key, out var keyError))
+		return Results.BadRequest(new { error = keyError });
+
+	if (!store.TryGet(key, out var value))
+		return Results.NotFound();
+	
+	return Results.Ok(new { key, value });
 });
 
-app.MapDelete("/kv/{key}", ([FromRoute] string key, IKvStore store) =>
+kvApi.MapPut("/{key}", ([FromRoute] string key, [FromBody] SetValueRequest request, IKvStore store) =>
 {
-	return Results.StatusCode(StatusCodes.Status501NotImplemented);
+	if (!ValidationRules.ValidateKey(key, out var keyError))
+		return Results.BadRequest(new { error = keyError });
+
+	if (!ValidationRules.ValidateValue(request.Value, out var valueError))
+		return Results.BadRequest(new { error = valueError });
+
+	var result = store.Upsert(key, request.Value);
+	
+	return result == UpsertResult.Created 
+		? Results.Created($"/kv/{key}", null) 
+		: Results.NoContent();
 });
 
-app.MapGet("/kv", ([FromQuery] string prefix, IKvStore store) =>
+kvApi.MapDelete("/{key}", ([FromRoute] string key, IKvStore store) =>
 {
-	return Results.StatusCode(StatusCodes.Status501NotImplemented);
+	if (!ValidationRules.ValidateKey(key, out var keyError))
+		return Results.BadRequest(new { error = keyError });
+
+	if (store.TryRemove(key))
+		return Results.NoContent();
+	
+	return Results.NotFound();
 });
 
 app.Run();
+
+public sealed class SetValueRequest
+{
+	public string? Value { get; set; }
+}
