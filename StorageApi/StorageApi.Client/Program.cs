@@ -1,4 +1,5 @@
 using StorageApi.Client;
+using System.Text.Json;
 
 var baseUrl = "https://localhost:62957";
 var http = new HttpClient { BaseAddress = new Uri(baseUrl) };
@@ -7,61 +8,79 @@ var kv = new KvClient(http);
 
 if (args.Length == 0)
 {
-	Console.WriteLine("Interactive mode. Type 'exit' or 'quit' to exit.");
-	while (true)
-	{
-		Console.Write("> ");
-		var input = Console.ReadLine();
+    Console.WriteLine("Interactive mode. Type 'exit' or 'quit' to exit.");
+    while (true)
+    {
+        Console.Write("> ");
+        var input = Console.ReadLine();
 
-		if (string.IsNullOrWhiteSpace(input))
-			continue;
+        if (string.IsNullOrWhiteSpace(input))
+            continue;
 
-		if (input.Equals("exit", StringComparison.OrdinalIgnoreCase) ||
-			input.Equals("quit", StringComparison.OrdinalIgnoreCase))
-			break;
+        if (input.Equals("exit", StringComparison.OrdinalIgnoreCase) ||
+            input.Equals("quit", StringComparison.OrdinalIgnoreCase))
+            break;
 
-		var inputArgs = input.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        var inputArgs = input.Split(' ', StringSplitOptions.RemoveEmptyEntries);
 
-		if (!CliParser.TryParse(inputArgs, out var command, out var error))
-		{
-			Console.WriteLine(error);
-			continue;
-		}
+        if (!CliParser.TryParse(inputArgs, out var command, out var error))
+        {
+            Console.WriteLine(error);
+            continue;
+        }
 
-		await ExecuteCommandAsync(kv, command);
-	}
+        await ExecuteCommandAsync(kv, command);
+    }
 
-	return;
+    return;
 }
 
 if (!CliParser.TryParse(args, out var cmd, out var parseError))
 {
-	Console.WriteLine(parseError);
-	CliParser.PrintHelp();
-	return;
+    Console.WriteLine(parseError);
+    CliParser.PrintHelp();
+    return;
 }
 
 await ExecuteCommandAsync(kv, cmd);
 
 static async Task ExecuteCommandAsync(KvClient kv, CliCommand command)
 {
-	switch (command.Name)
-	{
-		case "set":
-			await kv.SetAsync(command.Key, command.Value);
-			Console.WriteLine("OK");
-			break;
-		case "get":
-			var value = await kv.GetAsync(command.Key);
-			Console.WriteLine(value ?? "NOT FOUND");
-			break;
-		case "del":
-			var deleted = await kv.DeleteAsync(command.Key);
-			Console.WriteLine(deleted ? "DELETED" : "NOT FOUND");
-			break;
-		case "list":
-			var keys = await kv.ListAsync(command.Prefix);
-			foreach (var k in keys) Console.WriteLine(k);
-			break;
-	}
+    switch (command.Name)
+    {
+        case "set":
+            await kv.SetAsync(command.Key, command.Value, command.TtlSeconds);
+            Console.WriteLine("OK");
+            break;
+        case "batchset":
+            if (!File.Exists(command.FilePath))
+            {
+                Console.WriteLine("File not found: " + command.FilePath);
+                break;
+            }
+
+            var json = await File.ReadAllTextAsync(command.FilePath);
+            var items = JsonSerializer.Deserialize<List<BatchUpsertItem>>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            if (items == null || items.Count == 0)
+            {
+                Console.WriteLine("No items to upsert.");
+                break;
+            }
+
+            await kv.BatchSetAsync(items);
+            Console.WriteLine("Batch OK");
+            break;
+        case "get":
+            var value = await kv.GetAsync(command.Key);
+            Console.WriteLine(value ?? "NOT FOUND");
+            break;
+        case "del":
+            var deleted = await kv.DeleteAsync(command.Key);
+            Console.WriteLine(deleted ? "DELETED" : "NOT FOUND");
+            break;
+        case "list":
+            var keys = await kv.ListAsync(command.Prefix);
+            foreach (var k in keys) Console.WriteLine(k);
+            break;
+    }
 }

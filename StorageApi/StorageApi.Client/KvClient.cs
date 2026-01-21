@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Net;
 using System.Net.Http.Json;
 
@@ -9,9 +10,16 @@ public sealed class KvClient
 
     public KvClient(HttpClient http) => _http = http;
 
-    public async Task SetAsync(string key, string value)
+    public async Task SetAsync(string key, string value, int ttlSeconds)
     {
-        var resp = await _http.PutAsJsonAsync($"/kv/{key}", new { value });
+        var resp = await _http.PutAsJsonAsync($"/kv/{key}", new { value, ttlSeconds });
+        resp.EnsureSuccessStatusCode();
+    }
+
+    public async Task BatchSetAsync(IEnumerable<BatchUpsertItem> items)
+    {
+        var payload = new { items };
+        var resp = await _http.PostAsJsonAsync("/kv/batch", payload);
         resp.EnsureSuccessStatusCode();
     }
 

@@ -6,7 +6,7 @@ namespace StorageApi.Server;
 public interface IKvStore
 {
     bool TryGet(string key, out string value);
-    UpsertResult Upsert(string key, string value);
+    UpsertResult Upsert(string key, string value, int ttlSeconds);
     bool TryRemove(string key);
     string[] ListKeys(string prefix);
 }
@@ -19,25 +19,69 @@ public enum UpsertResult
 
 public sealed class InMemoryKvStore : IKvStore
 {
-    private readonly ConcurrentDictionary<string, string> _data = new();
+    private sealed record Entry(string Value, DateTimeOffset ExpiresAt);
+
+    private readonly ConcurrentDictionary<string, Entry> _data = new();
 
     public bool TryGet(string key, out string value)
-        => _data.TryGetValue(key, out value);
-
-    public UpsertResult Upsert(string key, string value)
     {
-        if (_data.TryAdd(key, value))
+        value = null;
+
+        if (!_data.TryGetValue(key, out var entry))
+            return false;
+
+        // Lazily remove when expired
+        if (IsExpired(entry))
+        {
+            _data.TryRemove(key, out _);
+            return false;
+        }
+
+        value = entry.Value;
+        return true;
+    }
+
+    public UpsertResult Upsert(string key, string value, int ttlSeconds)
+    {
+        var entry = new Entry(value, DateTimeOffset.UtcNow.AddSeconds(ttlSeconds));
+
+        if (_data.TryAdd(key, entry))
             return UpsertResult.Created;
         
-        _data[key] = value;
+        _data[key] = entry;
         return UpsertResult.Updated;
     }
 
     public bool TryRemove(string key)
-        => _data.TryRemove(key, out _);
+    {
+        if (!_data.TryRemove(key, out var entry))
+            return false;
+
+        return !IsExpired(entry);
+    }
 
     public string[] ListKeys(string prefix)
-        => _data.Keys.Where(k => k.StartsWith(prefix)).OrderBy(k => k).ToArray();
+    {
+        var now = DateTimeOffset.UtcNow;
+        var keys = new List<string>();
+
+        foreach (var pair in _data)
+        {
+            if (pair.Value.ExpiresAt <= now)
+            {
+                _data.TryRemove(pair.Key, out _);
+                continue;
+            }
+
+            if (pair.Key.StartsWith(prefix))
+                keys.Add(pair.Key);
+        }
+
+        return keys.OrderBy(k => k).ToArray();
+    }
+
+    private static bool IsExpired(Entry entry)
+        => entry.ExpiresAt <= DateTimeOffset.UtcNow;
 }
 
 public static class ValidationRules
@@ -82,6 +126,25 @@ public static class ValidationRules
         if (value.Length > 2000)
         {
             error = "Value length must not exceed 2000 characters";
+            return false;
+        }
+
+        return true;
+    }
+
+    public static bool ValidateTtl(int? ttlSeconds, out string error)
+    {
+        error = null;
+
+        if (ttlSeconds is null)
+        {
+            error = "TTL (seconds) is required";
+            return false;
+        }
+
+        if (ttlSeconds <= 0 || ttlSeconds > 3600)
+        {
+            error = "TTL must be between 1 and 3600 seconds";
             return false;
         }
 
