@@ -1,0 +1,144 @@
+@host = https://localhost:62957
+@baseUrl = {{host}}/api/v2/kv
+
+### List all keys
+GET {{baseUrl}}
+Accept: application/json
+
+### List keys with prefix
+GET {{baseUrl}}?prefix=user:
+Accept: application/json
+
+### Get a value
+GET {{baseUrl}}/test-key
+Accept: application/json
+
+### Set a value (Create)
+PUT {{baseUrl}}/test-key
+Content-Type: application/json
+
+{
+  "value": "test-value",
+  "ttlSeconds": 300
+}
+
+### Set a value with prefix
+PUT {{baseUrl}}/user:jane
+Content-Type: application/json
+
+{
+  "value": "Jane Doe",
+  "ttlSeconds": 600
+}
+
+### Update an existing value
+PUT {{baseUrl}}/test-key
+Content-Type: application/json
+
+{
+  "value": "updated-value-v2",
+  "ttlSeconds": 300
+}
+
+### Delete a value
+DELETE {{baseUrl}}/test-key
+Accept: application/json
+
+### Batch upsert - Success
+POST {{baseUrl}}/batch
+Content-Type: application/json
+
+{
+  "items": [
+    {
+      "key": "user:charlie",
+      "value": "Charlie Brown",
+      "ttlSeconds": 300
+    },
+    {
+      "key": "user:david",
+      "value": "David Wilson",
+      "ttlSeconds": 300
+    },
+    {
+      "key": "config:language",
+      "value": "en-US",
+      "ttlSeconds": 3600
+    }
+  ]
+}
+
+### Batch upsert - Validation Error
+POST {{baseUrl}}/batch
+Content-Type: application/json
+
+{
+  "items": [
+    {
+      "key": "valid-key",
+      "value": "Valid value",
+      "ttlSeconds": 300
+    },
+    {
+      "key": "invalid@key",
+      "value": "This key contains invalid character",
+      "ttlSeconds": 300
+    }
+  ]
+}
+
+### Error: Invalid key (special characters)
+GET {{baseUrl}}/invalid@key!
+Accept: application/json
+
+### Error: Key too long
+PUT {{baseUrl}}/this-is-a-very-long-key-that-exceeds-the-fifty-character-limit-and-should-fail
+Content-Type: application/json
+
+{
+  "value": "test",
+  "ttlSeconds": 300
+}
+
+### Error: Invalid TTL (zero)
+PUT {{baseUrl}}/test-ttl
+Content-Type: application/json
+
+{
+  "value": "test",
+  "ttlSeconds": 0
+}
+
+### Error: Invalid TTL (negative)
+PUT {{baseUrl}}/test-ttl
+Content-Type: application/json
+
+{
+  "value": "test",
+  "ttlSeconds": -100
+}
+
+### Error: Value too long
+PUT {{baseUrl}}/test-value-length
+Content-Type: application/json
+
+{
+  "value": "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.",
+  "ttlSeconds": 300
+}
+
+### Error: Empty batch request
+POST {{baseUrl}}/batch
+Content-Type: application/json
+
+{
+  "items": []
+}
+
+### Get non-existent key
+GET {{baseUrl}}/does-not-exist
+Accept: application/json
+
+### Delete non-existent key
+DELETE {{baseUrl}}/does-not-exist
+Accept: application/json

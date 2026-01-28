@@ -1,0 +1,123 @@
+@host = https://localhost:62957
+@baseUrl = {{host}}/kv
+
+### List all keys
+GET {{baseUrl}}
+Accept: application/json
+
+### List keys with prefix
+GET {{baseUrl}}?prefix=user:
+Accept: application/json
+
+### Get a value
+GET {{baseUrl}}/test-key
+Accept: application/json
+
+### Set a value (Create)
+PUT {{baseUrl}}/test-key
+Content-Type: application/json
+
+{
+  "value": "test-value",
+  "ttlSeconds": 300
+}
+
+### Set a value with prefix
+PUT {{baseUrl}}/user:john
+Content-Type: application/json
+
+{
+  "value": "John Doe",
+  "ttlSeconds": 600
+}
+
+### Update an existing value
+PUT {{baseUrl}}/test-key
+Content-Type: application/json
+
+{
+  "value": "updated-value",
+  "ttlSeconds": 300
+}
+
+### Delete a value
+DELETE {{baseUrl}}/test-key
+Accept: application/json
+
+### Batch upsert - Success
+POST {{baseUrl}}/batch
+Content-Type: application/json
+
+{
+  "items": [
+    {
+      "key": "user:alice",
+      "value": "Alice Smith",
+      "ttlSeconds": 300
+    },
+    {
+      "key": "user:bob",
+      "value": "Bob Jones",
+      "ttlSeconds": 300
+    },
+    {
+      "key": "config:theme",
+      "value": "dark",
+      "ttlSeconds": 3600
+    }
+  ]
+}
+
+### Batch upsert - Validation Error
+POST {{baseUrl}}/batch
+Content-Type: application/json
+
+{
+  "items": [
+    {
+      "key": "valid-key",
+      "value": "Valid value",
+      "ttlSeconds": 300
+    },
+    {
+      "key": "invalid key with spaces",
+      "value": "This key is invalid",
+      "ttlSeconds": 300
+    }
+  ]
+}
+
+### Error: Invalid key (spaces)
+GET {{baseUrl}}/invalid key
+Accept: application/json
+
+### Error: Key too long
+PUT {{baseUrl}}/this-is-a-very-long-key-that-exceeds-the-fifty-character-limit-and-should-fail
+Content-Type: application/json
+
+{
+  "value": "test",
+  "ttlSeconds": 300
+}
+
+### Error: Invalid TTL (too high)
+PUT {{baseUrl}}/test-ttl
+Content-Type: application/json
+
+{
+  "value": "test",
+  "ttlSeconds": 5000
+}
+
+### Error: Value too long
+PUT {{baseUrl}}/test-value-length
+Content-Type: application/json
+
+{
+  "value": "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.",
+  "ttlSeconds": 300
+}
+
+### Get non-existent key
+GET {{baseUrl}}/does-not-exist
+Accept: application/json

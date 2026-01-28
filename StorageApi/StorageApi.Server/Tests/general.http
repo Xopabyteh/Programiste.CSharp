@@ -1,0 +1,13 @@
+@host = http://localhost:5000
+
+### Root redirect to Scalar documentation
+GET {{host}}
+Accept: text/html
+
+### Scalar API documentation
+GET {{host}}/scalar
+Accept: text/html
+
+### OpenAPI specification
+GET {{host}}/openapi/v1.json
+Accept: application/json
